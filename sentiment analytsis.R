@@ -17,6 +17,7 @@ str(complaints)
 #unnest data
 rawTidy_ <- unnest_tokens(complaints, words,consumer_complaint_narrative, token='words')
 
+
 #plot some common words (also do this per product and for compensated/noncompensated)
 rawTidy_ %>% group_by(product,words) %>%
   summarize(count = n())%>%
@@ -49,16 +50,32 @@ sentiTidy <- rawTidy_ %>%
   left_join(get_sentiments('bing'))%>%
   mutate(sentiment =ifelse(is.na(sentiment),"neutral",sentiment))
 
+test2 <- get_sentiments('bing')
+head(get_sentiments('bing'))
+
 #clean up dates
 sentiFin <- sentiTidy %>%mutate(date = parse_datetime(date_received, "%m/%d/%Y")) %>%mutate(yearMonth = make_date(year(date), month(date)))
                                                                                             
             
 #plot over time, need to change to relative frequency.
-
-
 sentiFin%>%
   group_by(yearMonth,product,sentiment)%>%
   summarize(n=n())%>%
   mutate(total=sum(n), relFreq = n/total)%>%
   filter(sentiment!='neutral')%>%
   ggplot(aes(x=yearMonth,y=relFreq, colour=sentiment))+geom_line()+facet_wrap(~product)
+
+
+
+head(sentiFin)
+#calculate sentiment per complaint
+sentiComp <- sentiFin %>% 
+  group_by(id,product,consumer_compensated) %>%
+  summarize(netSentiment = (sum(sentiment=="positive")-sum(sentiment=="negative")),month=first(yearMonth))%>% mutate(count = n())
+
+
+head(sentiComp)
+
+sentiComp %>%
+  group_by(product)%>%
+  ggplot(aes(netSentiment,count, colour=consumer_compensated)) +geom_col()+facet_wrap(~product)

@@ -1,0 +1,135 @@
+---
+title: "Data Science for Industry Short Course Assignment"
+author: "Niel Kemp"
+date: "21 August 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This report deals with the analysis of sentiments of complaints received by the US Consumer Financial Protection Bureau. The complaints are regarding financial products and services. The analysis in this report deals with a pre-prepared subset of 20,000 complaints. The full dataset can be downloaded at: <https://catalog.data.gov/dataset/consumer-complaint-database>
+
+## Approach
+###Libraries and data loading
+
+The following R-packages were used, these can be obtained from CRAN:
+
+* tidyverse
+* stringr
+* tidytext
+* lubridate
+
+```{r libraries, echo = FALSE}
+library(tidyverse)
+library(stringr)
+library(tidytext)
+library(lubridate)
+```
+
+
+The dataset contained in *complaints.RData* is loaded from the current working directly using the **load** function in R.
+
+```{r load data, echo = FALSE}
+load('complaints.RData')
+```
+
+After the data is loaded we use **head** or **str** to investigate the top 5 rows of our dataset and some of the metadata
+
+```{r head of data, echo = FALSE}
+head(complaints)
+str(complaints)
+```
+
+###Compensations by Product
+
+Once the data is loaded and we have a feeling of the shape and formats of the relevant fields, we have a look at the the prevalence of each type of complaint and how often they resulted in the consumer being compensated:
+
+```{r complaints and compensation, echo=FALSE}
+complaints%>%group_by(product)%>%summarize(complaints = n(), consumers_compensated = sum(consumer_compensated))%>%mutate(ratio = consumers_compensated/complaints)
+```
+
+From the above table it's easy to see that the most often complained about product or area is Debt Collection, and then Mortgages. However, the areas where compensation is most often paid to consumers is the other 3 product, namely  Bank Accounts or Services, Credit Card or Credit Reporting.
+
+
+
+### Data Cleaning
+
+Before we continue working with the data we need to do four things:
+
+* Get the data into the tidy text format which is 'one word per row'
+* Remove stop words
+* Add sentiments
+* Calculate sentiment score of each complaint
+
+#### Get data into tidy text format
+
+The tidy text format is having only a single word per row in your dataset. In order to do this we use the *unnest_tokens* function with the token set to *words*. Using the token as *words* means that we'll unnest the data into one word per row. This can also be set to *sentences* or to *regex* if you wish to use a more customized string/toekn.
+
+Before and after version of the data is shown below:
+
+##### Before
+```{r before unnest,echo =FALSE}
+head(complaints)
+```
+##### After
+```{r after unnest,echo=FALSE}
+complaints%>%
+  unnest_tokens(word, consumer_complaint_narrative, token='words') %>%
+  head()
+
+```
+
+#### Removing stop words
+
+To remove stop words we use the lexicon of stop words that comes with **tidytext**. Below is a sample of 20 words from this lexicon of stop words.
+```{r stop word sample, echo = FALSE}
+sample(stop_words$word,20)
+
+rawTidy_ <- complaints%>%
+  unnest_tokens(word, consumer_complaint_narrative, token='words')%>%
+  filter(!word %in% stop_words$word, str_detect(word,"[a-z]"))
+```
+
+####Adding Sentiments
+After we've removed stop words and gotten our data into the tidy text format, we have one final step of data cleaning to do. We need to add sentiments to our dataset. To do this we'll use the Bing sentiment dictionary that comes with the *tidytext* package.
+
+TOp 5 rows of the above mentioned dictionary can be seen below:
+```{r Bing dictionary, echo=FALSE}
+head(get_sentiments('bing'))
+```
+
+We'll use a left_join to add the sentiments to our dataset. We'll also use an *ifelse* statement to change any sentiment that isn't **positive** or **negative** to **neutral**
+```{r add sentiments, echo=FALSE}
+sentiTidy <- rawTidy_ %>%
+  left_join(get_sentiments('bing'))%>%
+  mutate(sentiment =ifelse(is.na(sentiment),"neutral",sentiment))
+```
+
+#### Calculate sentiment score of each complaint
+
+The final data cleaning step, is to calculate the **sentiment score** of each comlaint. To do this, we simply subtract the number of words with a negative sentiment from the number of words with a positive sentiment for each complaint, ignoring words with a neutral sentiment. If the result is negative, then the complaint has a negative sentiment, if the result is positive, then the complaint has a positive sentiment.
+
+Seeing as we're working with a dataset full of *complaints*, the expectation is that we won't see a lot of net-positive results. The result of the final cleaned up dataset is below:
+
+```{r calculating sentiment per complaint, echo = FALSE}
+#calculate sentiment per complaint
+sentiComp <- sentiTidy %>% 
+  group_by(id,product,consumer_compensated) %>%
+  summarize(netSentiment = (sum(sentiment=="positive")-sum(sentiment=="negative")))%>%mutate(count=n())
+head(sentiComp)
+```
+
+#Results
+##Histogram of sentiment scores per product
+```{r sentiment histograms,echo=FALSE}
+sentiComp %>%
+  group_by(product)%>%
+  ggplot(aes(netSentiment,count, colour=consumer_compensated)) +geom_col()+facet_wrap(~product)
+```
+
+
+
