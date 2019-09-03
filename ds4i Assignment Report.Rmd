@@ -46,13 +46,13 @@ str(complaints)
 
 ###Compensations by Product
 
-Once the data is loaded and we have a feeling of the shape and formats of the relevant fields, we have a look at the the prevalence of each type of complaint and how often they resulted in the consumer being compensated:
+Once the data is loaded and we have a feeling of the shape and formats of the relevant fields, we have a look at the prevalence of each type of complaint and how often they resulted in the consumer being compensated:
 
 ```{r complaints and compensation, echo=FALSE}
 complaints%>%group_by(product)%>%summarize(complaints = n(), consumers_compensated = sum(consumer_compensated))%>%mutate(ratio = consumers_compensated/complaints)
 ```
 
-From the above table it's easy to see that the most often complained about product or area is Debt Collection, and then Mortgages. However, the areas where compensation is most often paid to consumers is the other 3 product, namely  Bank Accounts or Services, Credit Card or Credit Reporting.
+From the above table it's easy to see that the most often complained about product or area is Debt Collection, and then Mortgages. However, the areas where compensation is most often paid to consumers is the other 3 products, namely  Bank Accounts or Services, Credit Card or Credit Reporting.
 
 
 
@@ -67,7 +67,7 @@ Before we continue working with the data we need to do four things:
 
 #### Get data into tidy text format
 
-The tidy text format is having only a single word per row in your dataset. In order to do this we use the *unnest_tokens* function with the token set to *words*. Using the token as *words* means that we'll unnest the data into one word per row. This can also be set to *sentences* or to *regex* if you wish to use a more customized string/toekn.
+The tidy text format is having only a single word per row in your dataset. In order to do this we use the *unnest_tokens* function with the token set to *words*. Using the token as *words* means that we'll unnest the data into one word per row. This can also be set to *sentences* or to *regex* if you wish to use a more customized string/token.
 
 Before and after version of the data is shown below:
 
@@ -97,7 +97,7 @@ rawTidy_ <- complaints%>%
 ####Adding Sentiments
 After we've removed stop words and gotten our data into the tidy text format, we have one final step of data cleaning to do. We need to add sentiments to our dataset. To do this we'll use the Bing sentiment dictionary that comes with the *tidytext* package.
 
-TOp 5 rows of the above mentioned dictionary can be seen below:
+Top 5 rows of the above mentioned dictionary can be seen below:
 ```{r Bing dictionary, echo=FALSE}
 head(get_sentiments('bing'))
 ```
@@ -111,7 +111,7 @@ sentiTidy <- rawTidy_ %>%
 
 #### Calculate sentiment score of each complaint
 
-The final data cleaning step, is to calculate the **sentiment score** of each comlaint. To do this, we simply subtract the number of words with a negative sentiment from the number of words with a positive sentiment for each complaint, ignoring words with a neutral sentiment. If the result is negative, then the complaint has a negative sentiment, if the result is positive, then the complaint has a positive sentiment.
+The final step, is to calculate the **sentiment score** of each complaint. To do this, we simply subtract the number of words with a negative sentiment from the number of words with a positive sentiment for each complaint, ignoring words with a neutral sentiment. If the result is negative, then the complaint has a negative sentiment, if the result is positive, then the complaint has a positive sentiment.
 
 Seeing as we're working with a dataset full of *complaints*, the expectation is that we won't see a lot of net-positive results. The result of the final cleaned up dataset is below:
 
@@ -128,8 +128,11 @@ head(sentiComp)
 ```{r sentiment histograms,echo=FALSE}
 sentiComp %>%
   group_by(product)%>%
-  ggplot(aes(netSentiment,count, colour=consumer_compensated)) +geom_col()+facet_wrap(~product)
+  ggplot(aes(netSentiment,count)) +geom_col()+facet_wrap(~product)
 ```
 
+As expected, the vast majority of *complaints* are indeed negative. The amount by which they are negative vary greatly, but they are more often than not, negative. 
+
+Out of all the products, **Debt Collection** and **Mortgages** have the complaints that have the biggest negative sentiments, with some of them having a sentiment score as low as -25.
 
 
